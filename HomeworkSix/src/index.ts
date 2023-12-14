@@ -1,11 +1,12 @@
-interface СalculateArea {
+interface CalculateArea {
      calculateArea(): number;
 }
+
 interface Printable {
      print(): void;
 }
 
-abstract class Properties implements Printable {
+abstract class Properties implements CalculateArea {
      public readonly name: string;
      public readonly color: string;
 
@@ -15,7 +16,6 @@ abstract class Properties implements Printable {
      }
 
      abstract calculateArea(): number;
-     abstract print(): void;
 }
 
 class Circle extends Properties {
@@ -29,16 +29,9 @@ class Circle extends Properties {
      calculateArea(): number {
           return Math.PI * this.radius ** 2;
      }
-
-     print(): void {
-          console.log(
-               `Area of ${this.name} (Color: ${this.color}): ${Math.PI * this.radius ** 2
-               }`
-          );
-     }
 }
 
-class Rectangle extends Properties {
+class Rectangle extends Properties implements Printable {
      public width: number;
      public height: number;
 
@@ -84,18 +77,10 @@ class Triangle extends Properties {
      calculateArea(): number {
           return (this.base * this.height) / 2;
      }
-
-     print(): void {
-          console.log(
-               `Area of ${this.name} (Color: ${this.color}): ${(this.base * this.height) / 2
-               }`
-          );
-     }
 }
 
 const circle = new Circle("Circle", "Black", 15);
 console.log(circle.calculateArea());
-circle.print();
 
 const rectangle = new Rectangle("Rectangle", "Red", 3, 8);
 console.log(rectangle.calculateArea());
@@ -107,4 +92,3 @@ square.print();
 
 const triangle = new Triangle("Triangle", "Orange", 4, 6);
 console.log(triangle.calculateArea());
-triangle.print();
