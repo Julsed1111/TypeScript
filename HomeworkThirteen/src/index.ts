@@ -13,138 +13,146 @@
 
 //Також окремо необхідно розширити список можливістю сортування нотаток за статусом або часом створення.
 
-class Note {
+interface NoteType {
+  default: "default";
+  confirm: "confirm";
+}
+
+const TaskTypes: NoteType = {
+  default: "default",
+  confirm: "confirm",
+};
+
+interface Note {
   id: number;
   title: string;
   content: string;
   creationDate: Date;
-  modificationDate: Date;
-  status: boolean;
+  editDate: Date;
+  isCompleted: boolean;
+}
 
-  [key: string]: string | number | boolean | Date | undefined | unknown;
+interface EditableNote {
+  type: NoteType[keyof NoteType];
+}
 
-  constructor(id: number, title: string, content: string) {
-    this.id = id;
-    this.title = title;
-    this.content = content;
+abstract class NoteManager {
+  protected readonly noteId: number;
+  protected readonly creationDate: Date;
+  protected editDate: Date;
+  protected isCompleted: boolean;
+
+  protected notes: Note[] = [];
+  public title: string;
+  public content: string;
+
+  constructor(note: Note) {
+    this.noteId = note.id;
+    this.title = note.title;
+    this.content = note.content;
     this.creationDate = new Date();
-    this.modificationDate = new Date();
-    this.status = false;
+    this.editDate = note.editDate;
+    this.isCompleted = note.isCompleted;
+    this.addNote(note);
   }
 
-  markAsDone() {
-    this.status = true;
-  }
-}
-
-class ConfirmableNote extends Note {
-  confirmEdit: boolean;
-
-  constructor(id: number, title: string, content: string) {
-    super(id, title, content);
-    this.confirmEdit = true;
-  }
-}
-
-class NoteList {
-  notes: Note[];
-
-  constructor() {
-    this.notes = [];
-  }
-
-  addNote(note: Note) {
-    if (note.title && note.content) {
-      this.notes.push(note);
-    } else {
-      console.error("Note name and content cannot be empty.");
-    }
-  }
-
-  deleteNoteById(id: number) {
-    this.notes = this.notes.filter((note) => note.id !== id);
-  }
-
-  confirmEdit(): boolean {
-    const confirmation = window.confirm(
-      "Are you sure you want to edit this note?"
-    );
-    return confirmation;
-  }
-
-  editNoteById(id: number, newNote: Note) {
-    const existingNote = this.notes.find((note) => note.id === id);
-
-    if (existingNote) {
-      if (newNote instanceof ConfirmableNote && newNote.confirmEdit) {
-        const userConfirmed = this.confirmEdit();
-
-        if (!userConfirmed) {
-          console.log("Edit canceled by user.");
-          return;
-        }
-      }
-
-      existingNote.title = newNote.title;
-      existingNote.content = newNote.content;
-      existingNote.modificationDate = new Date();
-    } else {
-      console.error("No notes were found with the specified ID.");
-    }
-  }
-
-  getNoteById(id: number): Note | undefined {
-    return this.notes.find((note) => note.id === id);
-  }
-
-  getAllNotes(): Note[] {
+  public get allNotes(): Note[] {
     return this.notes;
   }
 
-  getUncompletedNotesCount(): number {
-    return this.notes.filter((note) => !note.status).length;
+  protected unfinishedNotes(): Note[] {
+    return this.notes.filter((note) => !note.isCompleted);
   }
 
-  searchNotes(query: string, field: string = "title"): Note[] {
-    return this.notes.filter((note) => {
-      const noteField = note[field] as unknown;
-      return (
-        (typeof noteField === "string" &&
-          noteField.toLowerCase().includes(query.toLowerCase())) ||
-        false
-      );
+  protected countAllNotes(): number {
+    return this.notes.length;
+  }
+
+  public completeNote(id: number): void {
+    this.notes.forEach((note) => {
+      if (note.id === id && !note.isCompleted) {
+        note.isCompleted = true;
+      }
     });
   }
 
-  sortNotesByStatus() {
-    this.notes.sort((a, b) => (a.status === b.status ? 0 : a.status ? 1 : -1));
+  public getNoteInfo(id: number): Note | undefined {
+    return this.notes.find((note) => note.id === id);
   }
 
-  sortNotesByCreationDate() {
-    this.notes.sort(
-      (a, b) => a.creationDate.getTime() - b.creationDate.getTime()
-    );
+  public removeNote(id: number): void {
+    this.notes = this.notes.filter((note) => note.id !== id);
+  }
+
+  public abstract modifyNote(note: Note): void;
+
+  public addNote(note: Note): void {
+    this.notes.push(note);
   }
 }
 
-const noteList = new NoteList();
-const note1 = new Note(1, "Title 1", "Info 1");
-const note2 = new ConfirmableNote(2, "Title 2", "Info 2");
+class DefaultNoteManager extends NoteManager implements EditableNote {
+  public readonly type: keyof NoteType;
 
-noteList.addNote(note1);
-noteList.addNote(note2);
+  constructor(note: Note, type: keyof NoteType) {
+    super(note);
+    this.type = type;
+  }
 
-console.log(noteList.getAllNotes());
-console.log(
-  "Number of outstanding notes:",
-  noteList.getUncompletedNotesCount()
-);
+  public modifyNote(note: Note): void {
+    this.notes.forEach((element) => {
+      if (element.id === note.id) {
+        element.title = note.title;
+        element.content = note.content;
+        element.editDate = note.editDate;
+        element.isCompleted = note.isCompleted;
+      }
+    });
+  }
+}
 
-noteList.editNoteById(1, new Note(1, "New title", "New Info"));
-console.log(noteList.getNoteById(1));
+class ConfirmNoteManager extends NoteManager implements EditableNote {
+  public readonly type: keyof NoteType;
 
-noteList.sortNotesByStatus();
-console.log("Sorted by status:", noteList.getAllNotes());
+  constructor(note: Note, type: keyof NoteType) {
+    super(note);
+    this.type = type;
+  }
 
-noteList.sortNotesByCreationDate();
-console.log("Sorted by creation date:", noteList.getAllNotes());
+  public modifyNote(note: Note): boolean {
+    const result = confirm("Please confirm the note modification");
+    if (result) {
+      this.notes.forEach((element) => {
+        if (element.id === note.id) {
+          element.title = note.title;
+          element.content = note.content;
+          element.editDate = note.editDate;
+          element.isCompleted = note.isCompleted;
+        }
+      });
+    }
+    return result;
+  }
+}
+
+class SearchNoteManager extends NoteManager {
+  public modifyNote(note: Note): void {
+    throw new Error("Note modification is not supported in this class");
+  }
+
+  public searchNotes(
+    field: keyof Note,
+    value: string | number | boolean
+  ): Note[] {
+    return this.notes.filter((note) => note[field] === value);
+  }
+}
+
+class SortNoteList {
+  public sortNotes(
+    compareFn: (a: Note, b: Note) => number,
+    notes: Note[]
+  ): Note[] {
+    return notes.slice().sort(compareFn);
+  }
+}
